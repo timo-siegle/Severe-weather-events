@@ -1,0 +1,113 @@
+---
+title: Public health and economic problems for communities caused by severe weather
+  events
+author: "Timo"
+date: "5/17/2020"
+output: 
+    html_document:
+        toc: true
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Synopsis
+In this report I aim to describe the effects of storms and other severe weather events on both public health and economic aspects. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern. To investigate this I obtained data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. From these data, I found that, tornadoes are by far the most harmful events with respect to population health. Floods ont the other hand have the greatest economic cosequences.
+
+## Data Processing
+### Information about the data
+The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size.
+
+* [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) [47Mb]
+
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
+
+* National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+* National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+### Downloading data
+```{r, cache = TRUE}
+sourceFile <- "stormData.csv.bz2"
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", sourceFile)
+```
+### Loading storm data into R
+```{r, cache = TRUE}
+stormData <- read.csv(file = sourceFile)
+```
+### Exploring data
+```{r, cache = TRUE}
+str(stormData)
+```
+## Results
+
+### 1. Across the United States, which types of events (as indicated in the \color{red}{\verb|EVTYPE|}EVTYPE variable) are most harmful with respect to population health?
+
+```{r, message = FALSE, echo = FALSE}
+library(dplyr)
+```
+Group storm data by event type.
+```{r}
+stormDataByEventType <- stormData %>% group_by(EVTYPE)
+```
+
+Add up the number of injuries by event type and sort the result in descending order.
+```{r}
+totalInjuries <-
+    stormDataByEventType %>% summarise(total_injuries = sum(INJURIES, na.rm = T)) %>% arrange(desc(total_injuries))
+```
+Identify the five event types with the highest number of injuries.
+```{r}
+totalInjuriesHead <- totalInjuries %>% top_n(5)
+print(totalInjuriesHead)
+```
+Print a bar plot with the results.
+```{r}
+library(ggplot2)
+ggplot(totalInjuriesHead, aes(x = total_injuries, y = reorder(EVTYPE, total_injuries))) +
+    geom_bar(stat = "identity") + labs(title = "Most harmful types of events with respect to population health", x = "Number of injuries", y = "Event type")
+```
+
+#### Answer
+Tornadoes are by far the most harmful events with respect to population health.
+
+### 2. Across the United States, which types of events have the greatest economic consequences?
+
+The relevant fields are PROPDMG and CROPDMG.
+According to the documentation, alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions.
+First step is to sum up the amount of propery damage by event type and sort the result in descending order.
+```{r}
+stormDataByEventType$PROPDMGEXP_clean <- 1
+stormDataByEventType$PROPDMGEXP_clean[stormDataByEventType$PROPDMGEXP == "K"] <-
+    1000
+stormDataByEventType$PROPDMGEXP_clean[stormDataByEventType$PROPDMGEXP == "M"] <-
+    1000000
+stormDataByEventType$PROPDMGEXP_clean[stormDataByEventType$PROPDMGEXP == "B"] <-
+    1000000000
+```
+Calculate total property damage by event type, sort them in descending order and pick the top five.
+```{r}
+totalPropertyDamage <-
+    stormDataByEventType %>% summarise(total_propery_damage = sum(PROPDMG *
+                                                                      PROPDMGEXP_clean, na.rm = T)) %>% arrange(desc(total_propery_damage))
+totalPropertyDamageHead <- totalPropertyDamage %>% top_n(5)
+print(totalPropertyDamageHead)
+```
+Then we have to sum up the amount of crop damage, in analogy to the property damage, by event type and sort the result in descending order.
+```{r}
+stormDataByEventType$CROPDMGEXP_clean <- 1
+stormDataByEventType$CROPDMGEXP_clean[stormDataByEventType$CROPDMGEXP == "K"] <-
+    1000
+stormDataByEventType$CROPDMGEXP_clean[stormDataByEventType$CROPDMGEXP == "M"] <-
+    1000000
+stormDataByEventType$CROPDMGEXP_clean[stormDataByEventType$CROPDMGEXP == "B"] <-
+    1000000000
+
+totalCropDamage <-
+    stormDataByEventType %>% summarise(total_crop_damage = sum(CROPDMG *
+                                                                   CROPDMGEXP_clean),
+                                       na.rm = T) %>% arrange(desc(total_crop_damage))
+totalCropDamageHead <- totalCropDamage %>% top_n(5)
+print(totalCropDamageHead)
+```
+#### Answer
+The most devastating weather event with the greatest economic cosequences (to property and crops) are floods.
